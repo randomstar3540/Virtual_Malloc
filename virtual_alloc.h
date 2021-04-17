@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size);
 
