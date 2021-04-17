@@ -4,8 +4,9 @@ void * virtual_sbrk(int32_t increment);
 
 void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
     // Your code here
-    printf("Heap start is %p",heapstart);
-    printf("Heap end is %p",virtual_sbrk(0));
+    printf("Heap start is %p\n",heapstart);
+    printf("Heap end is %p\n",virtual_sbrk(1));
+    printf("Heap end is %p\n",virtual_sbrk(1));
 }
 
 void * virtual_malloc(void * heapstart, uint32_t size) {
