@@ -1,5 +1,5 @@
 #include "virtual_alloc.h"
-//extern void * virtual_sbrk;
+extern void * virtual_sbrk;
 
 
 void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
