@@ -25,8 +25,8 @@ void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
     ((Start*)heapstart)->first = first_header;
 
     first_header->size = initial_size;
-    first_header->start = ((Start*)heapstart)+1;
     first_header->status = 0;
+    first_header->serial = 0;
     first_header->next = NULL;
 
 //    Debug
@@ -52,6 +52,7 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
             if (current_size > size && current_size < best_fit_size){
                 best_fit = header_ptr;
                 best_fit_address = current_address;
+                best_fit_size = current_size;
             }
         }
         current_address += current_size;
@@ -72,9 +73,11 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
         }
         new_header->size = best_fit->size-1;
         new_header->status = 0;
+        new_header->serial = best_fit->serial*2 + 1;
         new_header->next = best_fit->next;
 
         best_fit->size = best_fit->size -1;
+        best_fit->serial = best_fit->serial*2;
         best_fit->next = new_header;
 
     }
@@ -87,6 +90,48 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
 
 int virtual_free(void * heapstart, void * ptr) {
     // Your code here
+    Header * current = ((Start*)heapstart)->first;
+    Header * previous = NULL;
+    Header * next = NULL;
+
+    uint64_t previous_size;
+    uint64_t current_size;
+
+    BYTE * previous_address = (BYTE *) (((Start *) heapstart) + 1);
+    BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
+
+    while (current != NULL){
+        next = current->next;
+        previous_size = current_size;
+        current_size = pow_of_2(current->size);
+        if (current_address == ptr){
+            current->status = 0;
+
+            if(current->size >= ((Start*)heapstart)->init_size){
+                return 0;
+            }
+
+            if(next != NULL && current->serial % 2 == 0){
+                if (current->size == next->size && next->status == 0){
+                    merge_and_clear(current,next);
+                    virtual_free(heapstart,current_address);
+                    return 0;
+                }
+            }else if (previous != NULL && current->serial % 2 == 1){
+                if (previous->size == current->size && previous->status == 0){
+                    merge_and_clear(previous,current);
+                    virtual_free(heapstart,previous_address);
+                    return 0;
+                }
+            }
+            break;
+        }
+        current_address += current_size;
+        previous = current;
+        previous_address += previous_size;
+        current = current->next;
+    }
+
     return 1;
 }
 
@@ -97,6 +142,25 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
 
 void virtual_info(void * heapstart) {
     // Your code here
+}
+
+int merge_and_clear(Header * left, Header * right){
+    left->size = left->size +1;
+    left->next = right->next;
+    left->serial = left->serial / 2;
+    left->status = 0;
+
+    right->size = 0;
+    right->serial = 0;
+    right->status = 0;
+    right->next = NULL;
+
+
+    memmove(right,right+1,virtual_sbrk(0) - (void *)(right+1));
+    int16_t size = sizeof(struct Header);
+    virtual_sbrk(-size);
+    right = NULL;
+    return 0;
 }
 
 uint64_t pow_of_2(uint8_t power){

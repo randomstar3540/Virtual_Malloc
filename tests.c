@@ -7,7 +7,7 @@ void * virtual_heap = NULL;
 
 void * virtual_sbrk(int32_t increment) {
     // Your implementation here (for your testing only)
-    static uint32_t counter = 0;
+    static int64_t counter = 0;
     void * ret = virtual_heap + counter;
     if(HEAP_SIZE_LIMIT - counter < increment){
         return NULL;
@@ -23,7 +23,8 @@ void debug(void * heapstart){
     BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
 
     printf("\n\nDEBUG Information\n");
-    printf("Heapstart: %p\n\n",heapstart);
+    printf("Heapstart: %p\n",heapstart);
+    printf("Program break: %p\n\n",virtual_sbrk(0));
 
 
     while (header_ptr != NULL){
@@ -35,6 +36,7 @@ void debug(void * heapstart){
         printf("BLOCK %lu\n",count);
         printf("ADDR: %p\n",current_address);
         printf("size : %d\n",header_ptr->size);
+        printf("serial : %d\n",header_ptr->serial);
         if (header_ptr->status){
             printf("status : IN USE %d\n",header_ptr->status);
         }else{
@@ -63,7 +65,22 @@ int main() {
      * Test Allocating
      */
 
-    virtual_malloc(virtual_heap,8000);
+    void * test1 = virtual_malloc(virtual_heap,8000);
+    debug(virtual_heap);
+    void * test2 = virtual_malloc(virtual_heap,8000);
+    debug(virtual_heap);
+    void * test3 = virtual_malloc(virtual_heap,8000);
+    debug(virtual_heap);
+    void * test4 = virtual_malloc(virtual_heap,8000);
+    debug(virtual_heap);
+    virtual_free(virtual_heap,test3);
+    debug(virtual_heap);
+    virtual_free(virtual_heap,test4);
+    debug(virtual_heap);
+    virtual_free(virtual_heap,test2);
+    debug(virtual_heap);
+    virtual_free(virtual_heap,test1);
+
     debug(virtual_heap);
 
     /*
