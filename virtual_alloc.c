@@ -8,9 +8,9 @@ void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
         return;
     }
 
-    printf("%ld %d\n",virtual_sbrk(0)-heapstart,initial_size);
+    uint64_t current_size = virtual_sbrk(0)-heapstart;
 
-    if (virtual_sbrk(sizeof(Start) + 1) == NULL){
+    if (virtual_sbrk(pow_of_2(initial_size) - current_size + sizeof(Start)) == NULL){
         return;
     }
 
