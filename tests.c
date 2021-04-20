@@ -59,26 +59,18 @@ int main() {
     virtual_heap = malloc(HEAP_SIZE_LIMIT * sizeof(u_int8_t));
     virtual_sbrk(VIRTUAL_HEAP_SIZE);
 
-    init_allocator(virtual_heap, 15, 12);
+    init_allocator(virtual_heap, 15, 11);
 
     /*
      * Test Allocating
      */
 
-    void * test1 = virtual_malloc(virtual_heap,8000);
+    void * test1 = virtual_malloc(virtual_heap,4000);
 
-    void * test2 = virtual_malloc(virtual_heap,8000);
+    void * test2 = virtual_malloc(virtual_heap,2000);
 
-    void * test3 = virtual_malloc(virtual_heap,8000);
-
-    void * test4 = virtual_malloc(virtual_heap,8000);
-
-    virtual_free(virtual_heap,test3);
-
-    virtual_free(virtual_heap,test4);
-
+    debug(virtual_heap);
     virtual_free(virtual_heap,test2);
-
     virtual_free(virtual_heap,test1);
 
     debug(virtual_heap);
