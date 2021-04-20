@@ -65,15 +65,15 @@ int main() {
      * Test Allocating
      */
 
-    void * test1 = virtual_malloc(virtual_heap,4000);
+    void * test1 = virtual_malloc(virtual_heap,2049);
 
-    void * test2 = virtual_malloc(virtual_heap,2000);
+    void * test2 = virtual_malloc(virtual_heap,2048);
 
-    debug(virtual_heap);
-    virtual_free(virtual_heap,test2);
-    virtual_free(virtual_heap,test1);
-
-    debug(virtual_heap);
+//    debug(virtual_heap);
+//    virtual_free(virtual_heap,test2);
+//    virtual_free(virtual_heap,test1);
+//
+//    debug(virtual_heap);
 
     /*
      * After Testing

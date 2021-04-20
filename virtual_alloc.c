@@ -38,7 +38,6 @@ void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
 
 void * virtual_malloc(void * heapstart, uint32_t size) {
     // Your code here
-    printf("%u",size);
     Header * header_ptr = ((Start*)heapstart)->first;
     Header * best_fit = NULL;
     uint64_t best_fit_size = UINT64_MAX;
@@ -48,9 +47,9 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
 
     while (header_ptr != NULL){
         current_size = pow_of_2(header_ptr->size);
-
+        
         if (header_ptr->status==0){
-            if (current_size > size && current_size < best_fit_size){
+            if (current_size >= size && current_size < best_fit_size){
                 best_fit = header_ptr;
                 best_fit_address = current_address;
                 best_fit_size = current_size;
@@ -67,7 +66,7 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     Header * new_header;
     best_fit->status = 1;
 
-    while (pow_of_2(best_fit->size-1) > size && best_fit->size > ((Start*)heapstart)->min_size){
+    while (pow_of_2(best_fit->size-1) >= size && best_fit->size >= ((Start*)heapstart)->min_size){
         new_header = virtual_sbrk(0);
         if (virtual_sbrk(sizeof(Header)) == NULL){
             return NULL;
