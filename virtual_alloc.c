@@ -106,6 +106,7 @@ int virtual_free(void * heapstart, void * ptr) {
         current_size = pow_of_2(current->size);
         if (current_address == ptr){
             current->status = 0;
+            printf("free %lu\n", current_size);
 
             if(current->size >= ((Start*)heapstart)->init_size){
                 return 0;
