@@ -1,7 +1,8 @@
 #include "virtual_alloc.h"
 #include <stdlib.h>
-#define HEAP_SIZE_LIMIT 40000
-#define VIRTUAL_HEAP_SIZE 32768
+#define HEAP_SIZE_LIMIT 20
+#define VIRTUAL_HEAP_SIZE 16
+#define MIN_BLOCK_SIZE 10
 
 void * virtual_heap = NULL;
 
@@ -9,7 +10,7 @@ void * virtual_sbrk(int32_t increment) {
     // Your implementation here (for your testing only)
     static int64_t counter = 0;
     void * ret = virtual_heap + counter;
-    if(HEAP_SIZE_LIMIT - counter < increment){
+    if(pow_of_2(HEAP_SIZE_LIMIT) - counter < increment){
         return NULL;
     }
     counter += increment;
@@ -56,30 +57,27 @@ int main() {
     /*
      * Before Testing
      */
-    virtual_heap = malloc(HEAP_SIZE_LIMIT * sizeof(u_int8_t));
+    virtual_heap = malloc(pow_of_2(HEAP_SIZE_LIMIT) * sizeof(u_int8_t));
     virtual_sbrk(VIRTUAL_HEAP_SIZE);
 
-    init_allocator(virtual_heap, 15, 11);
+    init_allocator(virtual_heap, VIRTUAL_HEAP_SIZE, MIN_BLOCK_SIZE);
 
     /*
      * Test Allocating
      */
 
-    void * test1 = virtual_malloc(virtual_heap,2048);
-    void * test2 = virtual_malloc(virtual_heap,2049);
-    void * test3 = virtual_malloc(virtual_heap,2048);
+    void * test1 = virtual_malloc(virtual_heap,500);
+    void * test2 = virtual_malloc(virtual_heap,2000);
+    void * test3 = virtual_malloc(virtual_heap,1000);
     void * test4 = virtual_malloc(virtual_heap,8193);
-
-
-
     debug(virtual_heap);
+
+
     virtual_free(virtual_heap,test2);
-    debug(virtual_heap);
     virtual_free(virtual_heap,test1);
-    debug(virtual_heap);
     virtual_free(virtual_heap,test3);
 
-    debug(virtual_heap);
+
 
     /*
      * After Testing
