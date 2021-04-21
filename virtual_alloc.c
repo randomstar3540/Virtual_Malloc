@@ -95,6 +95,8 @@ int virtual_free(void * heapstart, void * ptr) {
     Header * current = ((Start*)heapstart)->first;
     Header * previous = NULL;
     Header * next = NULL;
+    printf("HS %p",heapstart);
+    printf("F %p",ptr);
 
     uint64_t current_size;
 

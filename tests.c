@@ -1,8 +1,8 @@
 #include "virtual_alloc.h"
 #include <stdlib.h>
 #define HEAP_SIZE_LIMIT 20
-#define VIRTUAL_HEAP_SIZE 16
-#define MIN_BLOCK_SIZE 10
+#define VIRTUAL_HEAP_SIZE 15
+#define MIN_BLOCK_SIZE 12
 
 void * virtual_heap = NULL;
 
@@ -66,16 +66,16 @@ int main() {
      * Test Allocating
      */
 
-    void * test1 = virtual_malloc(virtual_heap,500);
-    void * test2 = virtual_malloc(virtual_heap,2000);
-    void * test3 = virtual_malloc(virtual_heap,1000);
-    void * test4 = virtual_malloc(virtual_heap,8193);
-    debug(virtual_heap);
+    void * test1 = virtual_malloc(virtual_heap,8000);
+//    void * test2 = virtual_malloc(virtual_heap,2000);
+//    void * test3 = virtual_malloc(virtual_heap,1000);
+//    void * test4 = virtual_malloc(virtual_heap,8193);
+//    debug(virtual_heap);
 
 
-    virtual_free(virtual_heap,test2);
     virtual_free(virtual_heap,test1);
-    virtual_free(virtual_heap,test3);
+//    virtual_free(virtual_heap,test1);
+//    virtual_free(virtual_heap,test3);
 
 
 
