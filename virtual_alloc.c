@@ -45,7 +45,6 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     BYTE * best_fit_address = (BYTE *) (((Start *) heapstart) + 1);
     BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
 
-    printf("%d",size);
 
     while (header_ptr != NULL){
         current_size = pow_of_2(header_ptr->size);
@@ -141,6 +140,33 @@ int virtual_free(void * heapstart, void * ptr) {
 
 void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
     // Your code here
+    Header * current = ((Start*)heapstart)->first;
+    uint64_t current_size;
+    BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
+
+    while (current != NULL){
+        current_size = pow_of_2(current->size);
+
+        if (current_address == ptr){
+            current->status = 0;
+            BYTE * realloced_addr = virtual_malloc(heapstart,size);
+
+            if(realloced_addr == NULL){
+                current->status = 1;
+                return NULL;
+            }
+
+            if(current_size >= size){
+                memmove(realloced_addr,current_address,size);
+            }else{
+                memmove(realloced_addr,current_address,current_size);
+            }
+            return realloced_addr;
+        }
+
+        current_address += current_size;
+        current = current->next;
+    }
     return NULL;
 }
 
@@ -165,6 +191,39 @@ int merge_and_clear(Header * left, Header * right){
     virtual_sbrk(-size);
     right = NULL;
     return 0;
+}
+
+int avliable_size(void * heapstart, Header * start, Header * next, uint8_t size, uint8_t serial){
+
+    if (size >= ((Start*)heapstart)->init_size){
+        return size;
+    }
+
+    if(serial % 2 == 0){
+        if(size == next->size && next->status == 0){
+            return avliable_size(heapstart,start,next->next,size*2, serial/2);
+        }else{
+            return size;
+        }
+    }else if (serial % 2 == 1) {
+        Header * current = ((Start*)heapstart)->first;
+        Header * previous = NULL;
+
+        while (current != NULL){
+            if(current == start){
+                if(size == previous->size && previous->status == 0){
+                    return avliable_size(heapstart,previous,next,size*2, serial/2);
+                }else{
+                    return size;
+                }
+            }
+            previous = current;
+            current = current->next;
+        }
+    }
+
+    return -1;
+
 }
 
 uint64_t pow_of_2(uint8_t power){
