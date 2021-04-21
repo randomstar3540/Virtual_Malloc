@@ -39,6 +39,7 @@ void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
 
 void * virtual_malloc(void * heapstart, uint32_t size) {
     // Your code here
+    printf("M %d\n",size);
     Header * header_ptr = ((Start*)heapstart)->first;
     Header * best_fit = NULL;
     uint64_t best_fit_size = UINT64_MAX;
@@ -172,6 +173,7 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
 }
 
 void virtual_info(void * heapstart) {
+    printf("INFO\n");
     // Your code here
 }
 
