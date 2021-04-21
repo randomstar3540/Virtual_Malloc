@@ -45,6 +45,8 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     BYTE * best_fit_address = (BYTE *) (((Start *) heapstart) + 1);
     BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
 
+    printf("%d",size);
+
     while (header_ptr != NULL){
         current_size = pow_of_2(header_ptr->size);
 
@@ -127,7 +129,7 @@ int virtual_free(void * heapstart, void * ptr) {
             }
             break;
         }
-        
+
         current_address += current_size;
         previous = current;
         previous_address += previous_size;
