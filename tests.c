@@ -66,14 +66,20 @@ int main() {
      */
 
     void * test1 = virtual_malloc(virtual_heap,2048);
+    void * test2 = virtual_malloc(virtual_heap,2049);
+    void * test3 = virtual_malloc(virtual_heap,2048);
+    void * test4 = virtual_malloc(virtual_heap,8193);
 
-    void * test2 = virtual_realloc(virtual_heap,test1,2049);
 
-//    debug(virtual_heap);
+
+    debug(virtual_heap);
     virtual_free(virtual_heap,test2);
+    debug(virtual_heap);
     virtual_free(virtual_heap,test1);
-//
-//    debug(virtual_heap);
+    debug(virtual_heap);
+    virtual_free(virtual_heap,test3);
+
+    debug(virtual_heap);
 
     /*
      * After Testing

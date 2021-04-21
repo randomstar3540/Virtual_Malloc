@@ -95,7 +95,6 @@ int virtual_free(void * heapstart, void * ptr) {
     Header * previous = NULL;
     Header * next = NULL;
 
-    uint64_t previous_size;
     uint64_t current_size;
 
     BYTE * previous_address = (BYTE *) (((Start *) heapstart) + 1);
@@ -103,7 +102,6 @@ int virtual_free(void * heapstart, void * ptr) {
 
     while (current != NULL){
         next = current->next;
-        previous_size = current_size;
         current_size = pow_of_2(current->size);
         if (current_address == ptr){
             current->status = 0;
@@ -129,9 +127,9 @@ int virtual_free(void * heapstart, void * ptr) {
             break;
         }
 
+        previous_address = current_address;
         current_address += current_size;
         previous = current;
-        previous_address += previous_size;
         current = current->next;
     }
 
