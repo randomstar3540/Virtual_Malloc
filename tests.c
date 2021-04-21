@@ -70,8 +70,8 @@ int main() {
     void * test2 = virtual_malloc(virtual_heap,2048);
 
 //    debug(virtual_heap);
-//    virtual_free(virtual_heap,test2);
-//    virtual_free(virtual_heap,test1);
+    virtual_free(virtual_heap,test2);
+    virtual_free(virtual_heap,test1);
 //
 //    debug(virtual_heap);
 
