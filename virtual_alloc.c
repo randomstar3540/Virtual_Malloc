@@ -112,16 +112,14 @@ int virtual_free(void * heapstart, void * ptr) {
                 if (current->size == next->size && next->status == 0){
                     merge_and_clear(current,next);
                     virtual_free(heapstart,current_address);
-                    return 0;
                 }
             }else if (previous != NULL && current->serial % 2 == 1){
                 if (previous->size == current->size && previous->status == 0){
                     merge_and_clear(previous,current);
                     virtual_free(heapstart,previous_address);
-                    return 0;
                 }
             }
-            break;
+            return 0;
         }
 
         previous_address = current_address;
