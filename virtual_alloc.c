@@ -84,8 +84,6 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
 
     }
 
-    uint64_t block_size = pow_of_2(best_fit->size);
-
     return best_fit_address;
 }
 
