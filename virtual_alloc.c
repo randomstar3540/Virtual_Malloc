@@ -39,7 +39,6 @@ void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
 
 void * virtual_malloc(void * heapstart, uint32_t size) {
     // Your code here
-    printf("M %d\n",size);
     Header * header_ptr = ((Start*)heapstart)->first;
     Header * best_fit = NULL;
     uint64_t best_fit_size = UINT64_MAX;
@@ -96,8 +95,6 @@ int virtual_free(void * heapstart, void * ptr) {
     Header * current = ((Start*)heapstart)->first;
     Header * previous = NULL;
     Header * next = NULL;
-    printf("HS %p",heapstart);
-    printf("F %p",ptr);
 
     uint64_t current_size;
 
@@ -173,7 +170,17 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
 }
 
 void virtual_info(void * heapstart) {
-    printf("INFO\n");
+    Header * header_ptr = ((Start*)heapstart)->first;
+    while (header_ptr != NULL){
+        if (header_ptr->status == 0){
+            printf("free %lu",pow_of_2(header_ptr->size));
+        } else if (header_ptr->status ==1){
+            printf("allocated %lu",pow_of_2(header_ptr->size));
+        } else {
+            return;
+        }
+        header_ptr = header_ptr->next;
+    }
     // Your code here
 }
 
