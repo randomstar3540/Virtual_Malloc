@@ -85,7 +85,6 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     }
 
     uint64_t block_size = pow_of_2(best_fit->size);
-    printf("allocated %lu\n", block_size);
 
     return best_fit_address;
 }
@@ -106,7 +105,6 @@ int virtual_free(void * heapstart, void * ptr) {
         current_size = pow_of_2(current->size);
         if (current_address == ptr){
             current->status = 0;
-            printf("free %lu\n", current_size);
 
             if(current->size >= ((Start*)heapstart)->init_size){
                 return 0;
@@ -173,9 +171,9 @@ void virtual_info(void * heapstart) {
     Header * header_ptr = ((Start*)heapstart)->first;
     while (header_ptr != NULL){
         if (header_ptr->status == 0){
-            printf("free %lu",pow_of_2(header_ptr->size));
+            printf("free %lu\n",pow_of_2(header_ptr->size));
         } else if (header_ptr->status ==1){
-            printf("allocated %lu",pow_of_2(header_ptr->size));
+            printf("allocated %lu\n",pow_of_2(header_ptr->size));
         } else {
             return;
         }
