@@ -1,8 +1,8 @@
 #include "virtual_alloc.h"
 #include <stdlib.h>
 #define HEAP_SIZE_LIMIT 20
-#define VIRTUAL_HEAP_SIZE 11
-#define MIN_BLOCK_SIZE 8
+#define VIRTUAL_HEAP_SIZE 18
+#define MIN_BLOCK_SIZE 11
 
 void * virtual_heap = NULL;
 
@@ -36,7 +36,7 @@ void debug(void * heapstart){
          */
         printf("BLOCK %lu\n",count);
         printf("ADDR: %p\n",current_address);
-        printf("size : %d\n",header_ptr->size);
+        printf("size : %lu %d\n",pow_of_2(header_ptr->size),header_ptr->size);
         printf("serial : %d\n",header_ptr->serial);
         if (header_ptr->status){
             printf("status : IN USE %d\n",header_ptr->status);
@@ -66,30 +66,73 @@ int main() {
      * Test Allocating
      */
 
+//    void * test1 = virtual_malloc(virtual_heap,1024);
+//    void * test2 = virtual_malloc(virtual_heap,512);
+//    void * test3 = virtual_malloc(virtual_heap,256);
+//    void * test4 = virtual_malloc(virtual_heap,256);
+//
+//    virtual_info(virtual_heap);
+//    printf("\n");
+//
+//    printf("%d\n",virtual_free(virtual_heap,test2));
+//    virtual_info(virtual_heap);
+//    void * test5 = virtual_malloc(virtual_heap,256);
+//    virtual_info(virtual_heap);
+//    printf("%d\n",virtual_free(virtual_heap,test1));
+//    virtual_info(virtual_heap);
+//    void * test6 = virtual_malloc(virtual_heap,256);
+//    virtual_info(virtual_heap);
+//    printf("%d\n",virtual_free(virtual_heap,test3));
+//    virtual_info(virtual_heap);
+//    printf("%d\n",virtual_free(virtual_heap,test5));
+//    virtual_info(virtual_heap);
+//    printf("%d\n",virtual_free(virtual_heap,test4));
+//    virtual_info(virtual_heap);
+//    printf("%d\n",virtual_free(virtual_heap,test6));
+//    virtual_info(virtual_heap);
+
     void * test1 = virtual_malloc(virtual_heap,1024);
-    void * test2 = virtual_malloc(virtual_heap,512);
-    void * test3 = virtual_malloc(virtual_heap,256);
-    void * test4 = virtual_malloc(virtual_heap,256);
+    void * test2 = virtual_malloc(virtual_heap,1024);
+    void * test3 = virtual_malloc(virtual_heap,1024);
+    void * test4 = virtual_malloc(virtual_heap,1024);
+    void * test5 = virtual_malloc(virtual_heap,1024);
+    void * test6 = virtual_malloc(virtual_heap,1024);
+    void * test7 = virtual_malloc(virtual_heap,1024);
+    void * test8 = virtual_malloc(virtual_heap,1024);
+    void * test9 = virtual_malloc(virtual_heap,1024);
+    void * test10 = virtual_malloc(virtual_heap,1024);
+    void * test11 = virtual_malloc(virtual_heap,1024);
+    void * test12 = virtual_malloc(virtual_heap,1024);
+    void * test13 = virtual_malloc(virtual_heap,1024);
+    void * test14 = virtual_malloc(virtual_heap,1024);
+    void * test15 = virtual_malloc(virtual_heap,1024);
+    void * test16 = virtual_malloc(virtual_heap,1024);
 
-    virtual_info(virtual_heap);
-    printf("\n");
 
-    printf("%d\n",virtual_free(virtual_heap,test2));
-    virtual_info(virtual_heap);
-    void * test5 = virtual_malloc(virtual_heap,256);
-    virtual_info(virtual_heap);
-    printf("%d\n",virtual_free(virtual_heap,test1));
-    virtual_info(virtual_heap);
-    void * test6 = virtual_malloc(virtual_heap,256);
-    virtual_info(virtual_heap);
-    printf("%d\n",virtual_free(virtual_heap,test3));
-    virtual_info(virtual_heap);
-    printf("%d\n",virtual_free(virtual_heap,test5));
-    virtual_info(virtual_heap);
     printf("%d\n",virtual_free(virtual_heap,test4));
-    virtual_info(virtual_heap);
+    printf("%d\n",virtual_free(virtual_heap,test14));
+    printf("%d\n",virtual_free(virtual_heap,test13));
+
+    printf("%d\n",virtual_free(virtual_heap,test10));
+    printf("%d\n",virtual_free(virtual_heap,test8));
+    printf("%d\n",virtual_free(virtual_heap,test12));
+    debug(virtual_heap);
+    printf("%d\n",virtual_free(virtual_heap,test11));
+    debug(virtual_heap);
+    printf("%d\n",virtual_free(virtual_heap,test9));
+    debug(virtual_heap);
+    printf("%d\n",virtual_free(virtual_heap,test7));
+    debug(virtual_heap);
+    printf("%d\n",virtual_free(virtual_heap,test15));
+    printf("%d\n",virtual_free(virtual_heap,test2));
+
+
+    printf("%d\n",virtual_free(virtual_heap,test16));
+
+    printf("%d\n",virtual_free(virtual_heap,test3));
+    printf("%d\n",virtual_free(virtual_heap,test1));
+    printf("%d\n",virtual_free(virtual_heap,test5));
     printf("%d\n",virtual_free(virtual_heap,test6));
-    virtual_info(virtual_heap);
 
 
 

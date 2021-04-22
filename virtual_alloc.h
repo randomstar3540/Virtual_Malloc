@@ -28,7 +28,7 @@ typedef struct Start {
     struct Header* first;
 } Start;
 
-int merge_and_clear(Header * left, Header * right);
+int merge_and_clear(void * heapstart, Header * left, Header * right);
 
 int available_size(void * heapstart, Header * current, Header * next, uint8_t size, uint8_t serial);
 

@@ -43,7 +43,7 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     Header * best_fit = NULL;
     uint64_t best_fit_size = UINT64_MAX;
     uint64_t current_size;
-    BYTE * best_fit_address = (BYTE *) (((Start *) heapstart) + 1);
+    BYTE * best_fit_address;
     BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
 
     if (size == 0){
@@ -113,12 +113,12 @@ int virtual_free(void * heapstart, void * ptr) {
 
             if(next != NULL && header_ptr->serial % 2 == 0){
                 if (header_ptr->size == next->size && next->status == 0){
-                    merge_and_clear(header_ptr,next);
+                    merge_and_clear(heapstart,header_ptr,next);
                     virtual_free(heapstart,current_address);
                 }
             }else if (previous != NULL && header_ptr->serial % 2 == 1){
                 if (previous->size == header_ptr->size && previous->status == 0){
-                    merge_and_clear(previous,header_ptr);
+                    merge_and_clear(heapstart,previous,header_ptr);
                     virtual_free(heapstart,previous_address);
                 }
             }
@@ -201,22 +201,28 @@ void virtual_info(void * heapstart) {
     }
 }
 
-int merge_and_clear(Header * left, Header * right){
+int merge_and_clear(void * heapstart, Header * left, Header * right){
     left->size = left->size +1;
     left->next = right->next;
     left->serial = left->serial / 2;
     left->status = 0;
 
-    right->size = 0;
-    right->serial = 0;
-    right->status = 0;
-    right->next = NULL;
+    Header * header_ptr = ((Start*)heapstart)->first;
+    Header * next;
+    void * src = (void *)(right+1);
 
+    while (header_ptr != NULL){
+        next = header_ptr->next;
+        if (header_ptr->next > right){
+            header_ptr->next -= 1;
+        }
+        header_ptr = next;
+    }
 
-    memmove(right,right+1,virtual_sbrk(0) - (void *)(right+1));
+    memmove(right,src,virtual_sbrk(0) - src);
     int16_t size = sizeof(struct Header);
     virtual_sbrk(-size);
-    right = NULL;
+
     return 0;
 }
 
