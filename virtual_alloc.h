@@ -30,4 +30,6 @@ typedef struct Start {
 
 int merge_and_clear(Header * left, Header * right);
 
+int available_size(void * heapstart, Header * current, Header * next, uint8_t size, uint8_t serial);
+
 uint64_t pow_of_2(uint8_t power);

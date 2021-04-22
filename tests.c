@@ -68,14 +68,16 @@ int main() {
 
     void * test1 = virtual_malloc(virtual_heap,2049);
     void * test2 = virtual_malloc(virtual_heap,2048);
-//    void * test3 = virtual_malloc(virtual_heap,1000);
-//    void * test4 = virtual_malloc(virtual_heap,8193);
-//    debug(virtual_heap);
+    void * test3 = virtual_malloc(virtual_heap,1000);
+    void * test4 = virtual_malloc(virtual_heap,8193);
 
+    virtual_info(virtual_heap);
+    printf("\n");
 
-    printf("%d",virtual_free(virtual_heap,test1));
-//    virtual_free(virtual_heap,test1);
-//    virtual_free(virtual_heap,test3);
+    printf("%d\n",virtual_free(virtual_heap,test1));
+    printf("%d\n",virtual_free(virtual_heap,test2));
+    printf("%d\n",virtual_free(virtual_heap,test3));
+    printf("%d\n",virtual_free(virtual_heap,test4));
 
 
 

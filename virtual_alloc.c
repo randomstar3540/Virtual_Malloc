@@ -46,6 +46,9 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     BYTE * best_fit_address = (BYTE *) (((Start *) heapstart) + 1);
     BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
 
+    if (size == 0){
+        return NULL;
+    }
 
     while (header_ptr != NULL){
         current_size = pow_of_2(header_ptr->size);
@@ -89,7 +92,7 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
 
 int virtual_free(void * heapstart, void * ptr) {
     // Your code here
-    Header * current = ((Start*)heapstart)->first;
+    Header * header_ptr = ((Start*)heapstart)->first;
     Header * previous = NULL;
     Header * next = NULL;
 
@@ -98,24 +101,24 @@ int virtual_free(void * heapstart, void * ptr) {
     BYTE * previous_address = (BYTE *) (((Start *) heapstart) + 1);
     BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
 
-    while (current != NULL){
-        next = current->next;
-        current_size = pow_of_2(current->size);
+    while (header_ptr != NULL){
+        next = header_ptr->next;
+        current_size = pow_of_2(header_ptr->size);
         if (current_address == ptr){
-            current->status = 0;
+            header_ptr->status = 0;
 
-            if(current->size >= ((Start*)heapstart)->init_size){
+            if(header_ptr->size >= ((Start*)heapstart)->init_size){
                 return 0;
             }
 
-            if(next != NULL && current->serial % 2 == 0){
-                if (current->size == next->size && next->status == 0){
-                    merge_and_clear(current,next);
+            if(next != NULL && header_ptr->serial % 2 == 0){
+                if (header_ptr->size == next->size && next->status == 0){
+                    merge_and_clear(header_ptr,next);
                     virtual_free(heapstart,current_address);
                 }
-            }else if (previous != NULL && current->serial % 2 == 1){
-                if (previous->size == current->size && previous->status == 0){
-                    merge_and_clear(previous,current);
+            }else if (previous != NULL && header_ptr->serial % 2 == 1){
+                if (previous->size == header_ptr->size && previous->status == 0){
+                    merge_and_clear(previous,header_ptr);
                     virtual_free(heapstart,previous_address);
                 }
             }
@@ -124,42 +127,63 @@ int virtual_free(void * heapstart, void * ptr) {
 
         previous_address = current_address;
         current_address += current_size;
-        previous = current;
-        current = current->next;
+        previous = header_ptr;
+        header_ptr = header_ptr->next;
     }
 
     return 1;
 }
 
 void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
-    // Your code here
-    Header * current = ((Start*)heapstart)->first;
+    Header * header_ptr = ((Start*)heapstart)->first;
+    Header * realloc_header;
     uint64_t current_size;
+    uint64_t max_available_size = 0;
+    uint64_t size_obtain_free;
     BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
+    BYTE * new_address;
 
-    while (current != NULL){
-        current_size = pow_of_2(current->size);
+    if(ptr == NULL){
+        return virtual_malloc(heapstart,size);
+    }
+
+    if(size == 0){
+        virtual_free(heapstart,ptr);
+        ptr = NULL;
+        return NULL;
+    }
+
+    while (header_ptr != NULL){
+        current_size = pow_of_2(header_ptr->size);
+        if (header_ptr->status == 0 && current_size>max_available_size){
+            max_available_size = current_size;
+        }
 
         if (current_address == ptr){
-            current->status = 0;
-            BYTE * realloced_addr = virtual_malloc(heapstart,size);
+            realloc_header = header_ptr;
 
-            if(realloced_addr == NULL){
-                current->status = 1;
-                return NULL;
-            }
+            size_obtain_free = available_size(
+                    heapstart,header_ptr,header_ptr->next,header_ptr->size,header_ptr->serial);
+            size_obtain_free = pow_of_2(size_obtain_free);
 
-            if(current_size >= size){
-                memmove(realloced_addr,current_address,size);
-            }else{
-                memmove(realloced_addr,current_address,current_size);
+            if(size_obtain_free > max_available_size){
+                max_available_size = size_obtain_free;
             }
-            return realloced_addr;
         }
 
         current_address += current_size;
-        current = current->next;
+        header_ptr = header_ptr->next;
     }
+
+    if (realloc_header != NULL && max_available_size >= size){
+        uint64_t original = pow_of_2(realloc_header->size);
+        virtual_free(heapstart,ptr);
+        new_address = virtual_malloc(heapstart,size);
+        size = original > size ? size : original;
+        memmove(new_address,ptr,size);
+        return new_address;
+    }
+
     return NULL;
 }
 
@@ -175,7 +199,6 @@ void virtual_info(void * heapstart) {
         }
         header_ptr = header_ptr->next;
     }
-    // Your code here
 }
 
 int merge_and_clear(Header * left, Header * right){
@@ -197,7 +220,7 @@ int merge_and_clear(Header * left, Header * right){
     return 0;
 }
 
-int avliable_size(void * heapstart, Header * start, Header * next, uint8_t size, uint8_t serial){
+int available_size(void * heapstart, Header * current, Header * next, uint8_t size, uint8_t serial){
 
     if (size >= ((Start*)heapstart)->init_size){
         return size;
@@ -205,24 +228,24 @@ int avliable_size(void * heapstart, Header * start, Header * next, uint8_t size,
 
     if(serial % 2 == 0){
         if(size == next->size && next->status == 0){
-            return avliable_size(heapstart,start,next->next,size*2, serial/2);
+            return available_size(heapstart,current,next->next,size+1, serial/2);
         }else{
             return size;
         }
     }else if (serial % 2 == 1) {
-        Header * current = ((Start*)heapstart)->first;
+        Header * header_ptr = ((Start*)heapstart)->first;
         Header * previous = NULL;
 
-        while (current != NULL){
-            if(current == start){
+        while (header_ptr != NULL){
+            if(header_ptr == current){
                 if(size == previous->size && previous->status == 0){
-                    return avliable_size(heapstart,previous,next,size*2, serial/2);
+                    return available_size(heapstart,previous,next,size+1, serial/2);
                 }else{
                     return size;
                 }
             }
-            previous = current;
-            current = current->next;
+            previous = header_ptr;
+            header_ptr = header_ptr->next;
         }
     }
 
