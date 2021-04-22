@@ -18,7 +18,7 @@ void virtual_info(void * heapstart);
 typedef struct Header {
     uint8_t size;
     uint8_t status;
-    uint8_t serial;
+    uint32_t serial;
     struct Header* next;
 } Header;
 
