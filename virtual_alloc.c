@@ -1,59 +1,124 @@
 #include "virtual_alloc.h"
+#include "virtual_sbrk.h"
 
-void * virtual_sbrk(int32_t increment);
+uint8_t read_status(HEADER h){
+    return h >> 7;
+}
+
+uint8_t read_size(HEADER h){
+    h = h << 1;
+    return h >> 1;
+}
+
+uint8_t read_init_size(START *s){
+    return (*s);
+}
+
+uint8_t read_min_size(START *s){
+    return (*(s+1));
+}
+
+void writer_status(HEADER *h, uint8_t status){
+    uint8_t size = read_size(*h);
+    (*h) = (status << 7) | size;
+}
+
+void writer_size(HEADER *h, uint8_t size){
+    uint8_t status = read_status(*h);
+    (*h) = (status << 7) | size;
+}
+
+void write_start(START *s, uint8_t init_size, uint8_t min_size){
+    (*s) = init_size;
+    (*(s+1)) = min_size;
+}
+
+HEADER * add_block(HEADER *h){
+    if (virtual_sbrk(HEADER_SIZE) == NULL){
+        return NULL;
+    }
+    HEADER * dest = h + 2 * HEADER_SIZE;
+    HEADER * new_block = h + HEADER_SIZE;
+    uint64_t size = virtual_sbrk(0) - (void *)new_block;
+    memmove(dest,new_block,size);
+    *new_block = 0;
+    return new_block;
+}
+
+HEADER * remove_block(HEADER *h){
+    HEADER * src = h + HEADER_SIZE;
+    uint64_t size = virtual_sbrk(0) - (void *)h;
+    memmove(h,src,size);
+
+    if (virtual_sbrk(-1) == NULL){
+        return NULL;
+    }
+    return h;
+}
+
+int64_t count_serial(void * heapstart, HEADER * h){
+    HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+    uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
+    uint64_t counter = 0;
+    uint64_t serial = 0;
+    while (counter < blocks){
+        if (header_ptr == h){
+            serial = serial / pow_of_2(read_size(*h));
+            return serial;
+        }
+        serial += pow_of_2(read_size(*header_ptr));
+        header_ptr += HEADER_SIZE;
+        counter ++;
+    }
+    return -1;
+}
 
 void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
-    // Your code here
     if(heapstart==NULL){
         return;
     }
 
     uint64_t current_size = virtual_sbrk(0)-heapstart;
 
-    if (virtual_sbrk(pow_of_2(initial_size) - current_size + sizeof(Start)) == NULL){
+    if (virtual_sbrk(pow_of_2(initial_size) - current_size + HEAPSTART_SIZE) == NULL){
         return;
     }
 
-    Header* first_header = virtual_sbrk(0);
+    HEADER * first_header = virtual_sbrk(0);
 
-    if (virtual_sbrk(sizeof(Header)) == NULL){
+    if (virtual_sbrk(HEADER_SIZE) == NULL){
         return;
     }
 
-    ((Start*)heapstart)->init_size = initial_size;
-    ((Start*)heapstart)->min_size = min_size;
-    ((Start*)heapstart)->first = first_header;
-
-    first_header->size = initial_size;
-    first_header->status = 0;
-    first_header->serial = 0;
-    first_header->next = NULL;
+    write_start(heapstart,initial_size,min_size);
+    *first_header = 0;
+    writer_size(first_header,initial_size);
+    writer_status(first_header,FREE);
 
 
-//    Debug
-//    printf("%p\n",heapstart);
-//    printf("%p\n",first_header->start);
-//    printf("%p\n",virtual_sbrk(0));
 
 }
 
 void * virtual_malloc(void * heapstart, uint32_t size) {
     // Your code here
-    Header * header_ptr = ((Start*)heapstart)->first;
-    Header * best_fit = NULL;
+    HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+    HEADER * best_fit = NULL;
     uint64_t best_fit_size = UINT64_MAX;
     uint64_t current_size;
     BYTE * best_fit_address;
-    BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
+    BYTE * current_address = (BYTE *) (heapstart + HEAPSTART_SIZE);
+
+    uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
+    uint64_t counter = 0;
 
     if (size == 0){
         return NULL;
     }
 
-    while (header_ptr != NULL){
-        current_size = pow_of_2(header_ptr->size);
+    while (counter < blocks){
+        current_size = pow_of_2(read_size(*header_ptr));
 
-        if (header_ptr->status==0){
+        if (read_status(*header_ptr) == FREE){
             if (current_size >= size && current_size < best_fit_size){
                 best_fit = header_ptr;
                 best_fit_address = current_address;
@@ -61,30 +126,31 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
             }
         }
         current_address += current_size;
-        header_ptr = header_ptr->next;
+        header_ptr += HEADER_SIZE;
+        counter ++;
     }
 
     if(best_fit == NULL){
         return NULL;
     }
 
-    Header * new_header;
-    best_fit->status = 1;
+    HEADER * new_header;
+    uint8_t new_size_exp = read_size(*best_fit) -1;
+    uint64_t new_size = pow_of_2(new_size_exp);
+    writer_status(best_fit,IN_USE);
 
-    while (pow_of_2(best_fit->size-1) >= size && best_fit->size-1 >= ((Start*)heapstart)->min_size){
-        new_header = virtual_sbrk(0);
-        if (virtual_sbrk(sizeof(Header)) == NULL){
+    while (new_size >= size && new_size_exp >= read_min_size(heapstart)){
+        new_header = add_block(best_fit);
+        if(new_header == NULL){
             return NULL;
         }
-        new_header->size = best_fit->size-1;
-        new_header->status = 0;
-        new_header->serial = best_fit->serial*2 + 1;
-        new_header->next = best_fit->next;
 
-        best_fit->size = best_fit->size -1;
-        best_fit->serial = best_fit->serial*2;
-        best_fit->next = new_header;
+        writer_status(new_header,FREE);
+        writer_size(new_header,new_size_exp);
+        writer_size(best_fit,new_size_exp);
 
+        new_size_exp = read_size(*best_fit) - 1;
+        new_size = pow_of_2(new_size_exp);
     }
 
     return best_fit_address;
@@ -92,34 +158,41 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
 
 int virtual_free(void * heapstart, void * ptr) {
     // Your code here
-    Header * header_ptr = ((Start*)heapstart)->first;
-    Header * previous = NULL;
-    Header * next = NULL;
-
+    HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+    HEADER * previous_ptr = NULL;
+    HEADER * next_ptr = NULL;
     uint64_t current_size;
 
-    BYTE * previous_address = (BYTE *) (((Start *) heapstart) + 1);
-    BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
+    BYTE * previous_address = NULL;
+    BYTE * current_address = (BYTE *) (heapstart + HEAPSTART_SIZE);
 
-    while (header_ptr != NULL){
-        next = header_ptr->next;
-        current_size = pow_of_2(header_ptr->size);
+    uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
+    uint64_t counter = 0;
+
+    while (counter < blocks){
+        next_ptr = header_ptr + HEADER_SIZE;
+        current_size = pow_of_2(read_size(*header_ptr));
         if (current_address == ptr){
-            header_ptr->status = 0;
+            writer_status(header_ptr, FREE);
+            uint64_t serial = count_serial(heapstart,header_ptr);
 
-            if(header_ptr->size >= ((Start*)heapstart)->init_size){
+            if(read_size(*header_ptr) >= read_init_size(heapstart)){
                 return 0;
             }
 
-            if(next != NULL && header_ptr->serial % 2 == 0){
-                if (header_ptr->size == next->size && next->status == 0){
-                    merge_and_clear(heapstart,header_ptr,next);
-                    virtual_free(heapstart,current_address);
-                }
-            }else if (previous != NULL && header_ptr->serial % 2 == 1){
-                if (previous->size == header_ptr->size && previous->status == 0){
-                    merge_and_clear(heapstart,previous,header_ptr);
+            if(previous_ptr != NULL && serial % 2 == 1){
+                if (read_size(*previous_ptr) == read_size(*header_ptr) && read_status(*previous_ptr) == FREE){
+                    writer_size(previous_ptr,read_size(*previous_ptr + 1));
+                    remove_block(header_ptr);
                     virtual_free(heapstart,previous_address);
+                    return 0;
+                }
+            }else if (next_ptr != NULL && serial % 2 == 0){
+                if (read_size(*header_ptr) == read_size(*next_ptr) && read_status(*next_ptr) == FREE){
+                    writer_size(header_ptr,read_size(*header_ptr + 1));
+                    remove_block(next_ptr);
+                    virtual_free(heapstart,current_address);
+                    return 0;
                 }
             }
             return 0;
@@ -127,20 +200,21 @@ int virtual_free(void * heapstart, void * ptr) {
 
         previous_address = current_address;
         current_address += current_size;
-        previous = header_ptr;
-        header_ptr = header_ptr->next;
+        previous_ptr = header_ptr;
+        header_ptr += HEADER_SIZE;
+        counter ++;
     }
 
     return 1;
 }
 
 void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
-    Header * header_ptr = ((Start*)heapstart)->first;
-    Header * realloc_header;
+    HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+    HEADER * realloc_header;
     uint64_t current_size;
     uint64_t max_available_size = 0;
     uint64_t size_obtain_free;
-    BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
+    BYTE * current_address = (BYTE *) (heapstart + HEAPSTART_SIZE);
     BYTE * new_address;
 
     if(ptr == NULL){
@@ -153,17 +227,20 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
         return NULL;
     }
 
-    while (header_ptr != NULL){
-        current_size = pow_of_2(header_ptr->size);
-        if (header_ptr->status == 0 && current_size>max_available_size){
+    uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
+    uint64_t counter = 0;
+
+    while (counter < blocks){
+        current_size = pow_of_2(read_size(*header_ptr));
+        if (read_status(*header_ptr) == FREE && current_size>max_available_size){
             max_available_size = current_size;
         }
 
         if (current_address == ptr){
             realloc_header = header_ptr;
 
-            size_obtain_free = available_size(
-                    heapstart,header_ptr,header_ptr->next,header_ptr->size,header_ptr->serial);
+            size_obtain_free = available_size(heapstart, header_ptr -1, header_ptr +1,
+                                              read_size(*header_ptr),count_serial(heapstart,header_ptr));
             size_obtain_free = pow_of_2(size_obtain_free);
 
             if(size_obtain_free > max_available_size){
@@ -172,11 +249,12 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
         }
 
         current_address += current_size;
-        header_ptr = header_ptr->next;
+        header_ptr += HEADER_SIZE;
+        counter ++;
     }
 
     if (realloc_header != NULL && max_available_size >= size){
-        uint64_t original = pow_of_2(realloc_header->size);
+        uint64_t original = pow_of_2(read_size(*realloc_header));
         virtual_free(heapstart,ptr);
         new_address = virtual_malloc(heapstart,size);
         size = original > size ? size : original;
@@ -188,70 +266,44 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
 }
 
 void virtual_info(void * heapstart) {
-    Header * header_ptr = ((Start*)heapstart)->first;
-    while (header_ptr != NULL){
-        if (header_ptr->status == 0){
-            printf("free %lu\n",pow_of_2(header_ptr->size));
-        } else if (header_ptr->status ==1){
-            printf("allocated %lu\n",pow_of_2(header_ptr->size));
+    HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+
+//    printf("HEAP SIZE %lu\n",(void *)header_ptr - heapstart);//debug
+//    printf("BRK %p\n",virtual_sbrk(0));//debug
+
+    uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
+    uint64_t counter = 0;
+    while (counter < blocks){
+//        printf("BLOCK %lu ADDR %p\n",counter,header_ptr); //debug
+        if (read_status(*header_ptr) == FREE){
+            printf("free %lu\n",pow_of_2(read_size(*header_ptr)));
+        } else if (read_status(*header_ptr) == IN_USE){
+            printf("allocated %lu\n",pow_of_2(read_size(*header_ptr)));
         } else {
             return;
         }
-        header_ptr = header_ptr->next;
+        header_ptr += HEADER_SIZE;
+        counter ++;
     }
 }
 
-int merge_and_clear(void * heapstart, Header * left, Header * right){
-    left->size = left->size +1;
-    left->next = right->next;
-    left->serial = left->serial / 2;
-    left->status = 0;
+int available_size(void * heapstart, HEADER * previous, HEADER * next, uint8_t size, uint8_t serial){
 
-    Header * header_ptr = ((Start*)heapstart)->first;
-    Header * next;
-    void * src = (void *)(right+1);
-
-    while (header_ptr != NULL){
-        next = header_ptr->next;
-        if (header_ptr->next > right){
-            header_ptr->next -= 1;
-        }
-        header_ptr = next;
-    }
-
-    memmove(right,src,virtual_sbrk(0) - src);
-    int16_t size = sizeof(struct Header);
-    virtual_sbrk(-size);
-
-    return 0;
-}
-
-int available_size(void * heapstart, Header * current, Header * next, uint8_t size, uint8_t serial){
-
-    if (size >= ((Start*)heapstart)->init_size){
+    if (size >= read_init_size(heapstart)){
         return size;
     }
 
     if(serial % 2 == 0){
-        if(size == next->size && next->status == 0){
-            return available_size(heapstart,current,next->next,size+1, serial/2);
+        if(size == read_size(*next) && read_status(*next) == FREE){
+            return available_size(heapstart,previous,next+1,size+1, serial/2);
         }else{
             return size;
         }
     }else if (serial % 2 == 1) {
-        Header * header_ptr = ((Start*)heapstart)->first;
-        Header * previous = NULL;
-
-        while (header_ptr != NULL){
-            if(header_ptr == current){
-                if(size == previous->size && previous->status == 0){
-                    return available_size(heapstart,previous,next,size+1, serial/2);
-                }else{
-                    return size;
-                }
-            }
-            previous = header_ptr;
-            header_ptr = header_ptr->next;
+        if(size == read_size(*previous) && read_status(*previous) == FREE){
+            return available_size(heapstart,previous-1,next,size+1, serial/2);
+        }else{
+            return size;
         }
     }
 

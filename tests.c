@@ -1,4 +1,5 @@
 #include "virtual_alloc.h"
+#include "virtual_sbrk.h"
 #include <stdlib.h>
 #define HEAP_SIZE_LIMIT 20
 #define VIRTUAL_HEAP_SIZE 18
@@ -10,46 +11,8 @@ void * virtual_sbrk(int32_t increment) {
     // Your implementation here (for your testing only)
     static int64_t counter = 0;
     void * ret = virtual_heap + counter;
-    if(pow_of_2(HEAP_SIZE_LIMIT) - counter < increment){
-        return NULL;
-    }
-    counter += increment;
+    counter = counter + increment;
     return ret;
-}
-
-void debug(void * heapstart){
-    Header * header_ptr = ((Start*)heapstart)->first;
-    uint64_t count = 0;
-    uint64_t current_size;
-    BYTE * current_address = (BYTE *) (((Start *) heapstart) + 1);
-
-    printf("\n\nDEBUG Information\n");
-    printf("Heapstart: %p\n",heapstart);
-    printf("Program break: %p\n\n",virtual_sbrk(0));
-
-
-    while (header_ptr != NULL){
-        current_size = pow_of_2(header_ptr->size);
-
-        /*
-         * Printing
-         */
-        printf("BLOCK %lu\n",count);
-        printf("ADDR: %p\n",current_address);
-        printf("size : %lu %d\n",pow_of_2(header_ptr->size),header_ptr->size);
-        printf("serial : %d\n",header_ptr->serial);
-        if (header_ptr->status){
-            printf("status : IN USE %d\n",header_ptr->status);
-        }else{
-            printf("status : FREE %d\n",header_ptr->status);
-        }
-        printf("\n");
-
-
-        header_ptr = header_ptr->next;
-        current_address += current_size;
-        count ++;
-    }
 }
 
 int main() {
@@ -61,6 +24,7 @@ int main() {
     virtual_sbrk(VIRTUAL_HEAP_SIZE);
 
     init_allocator(virtual_heap, VIRTUAL_HEAP_SIZE, MIN_BLOCK_SIZE);
+    virtual_info(virtual_heap);
 
     /*
      * Test Allocating
@@ -72,6 +36,14 @@ int main() {
 //    void * test4 = virtual_malloc(virtual_heap,256);
 //
 //    virtual_info(virtual_heap);
+//
+//    virtual_free(virtual_heap,test4);
+//    virtual_free(virtual_heap,test2);
+//    virtual_info(virtual_heap);
+//    virtual_free(virtual_heap,test1);
+//    virtual_free(virtual_heap,test3);
+
+    virtual_info(virtual_heap);
 //    printf("\n");
 //
 //    printf("%d\n",virtual_free(virtual_heap,test2));
@@ -109,6 +81,7 @@ int main() {
     void * test16 = virtual_malloc(virtual_heap,1024);
 
 
+
     printf("%d\n",virtual_free(virtual_heap,test4));
     printf("%d\n",virtual_free(virtual_heap,test14));
     printf("%d\n",virtual_free(virtual_heap,test13));
@@ -116,16 +89,12 @@ int main() {
     printf("%d\n",virtual_free(virtual_heap,test10));
     printf("%d\n",virtual_free(virtual_heap,test8));
     printf("%d\n",virtual_free(virtual_heap,test12));
-    debug(virtual_heap);
     printf("%d\n",virtual_free(virtual_heap,test11));
-    debug(virtual_heap);
     printf("%d\n",virtual_free(virtual_heap,test9));
-    debug(virtual_heap);
     printf("%d\n",virtual_free(virtual_heap,test7));
-    debug(virtual_heap);
     printf("%d\n",virtual_free(virtual_heap,test15));
     printf("%d\n",virtual_free(virtual_heap,test2));
-
+    virtual_info(virtual_heap);
 
     printf("%d\n",virtual_free(virtual_heap,test16));
 

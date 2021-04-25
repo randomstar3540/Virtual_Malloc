@@ -4,6 +4,12 @@
 #include <string.h>
 
 #define BYTE uint8_t
+#define HEADER uint8_t
+#define START uint8_t
+#define HEADER_SIZE 1
+#define HEAPSTART_SIZE 2
+#define FREE 0
+#define IN_USE 1
 
 void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size);
 
@@ -15,21 +21,7 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size);
 
 void virtual_info(void * heapstart);
 
-typedef struct Header {
-    uint8_t size;
-    uint8_t status;
-    uint32_t serial;
-    struct Header* next;
-} Header;
 
-typedef struct Start {
-    uint8_t init_size;
-    uint8_t min_size;
-    struct Header* first;
-} Start;
-
-int merge_and_clear(void * heapstart, Header * left, Header * right);
-
-int available_size(void * heapstart, Header * current, Header * next, uint8_t size, uint8_t serial);
+int available_size(void * heapstart, HEADER * previous, HEADER * next, uint8_t size, uint8_t serial);
 
 uint64_t pow_of_2(uint8_t power);
