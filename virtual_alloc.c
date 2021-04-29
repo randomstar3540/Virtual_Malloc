@@ -139,6 +139,54 @@ int64_t count_serial(void * heapstart, HEADER * h){
     return -1;
 }
 
+int validation(void * heapstart){
+    /*
+     * Check if the allocating data structure is valid
+     * If some unexpected behavior happened, or data structure modification detected
+     * it will report an error
+     */
+    if(heapstart==NULL){
+        return -1;
+    }
+    //check if initial size and minimum size valid
+    if (read_init_size(heapstart) > 64 || read_min_size(heapstart) > 64){
+        return -1;
+    }
+    if (read_init_size(heapstart) < read_min_size(heapstart)){
+        return -1;
+    }
+
+    //check if virtual_sbrk working
+    if (virtual_sbrk(0) == NULL){
+        return -1;
+    }
+
+    //Compute the address of the header of first block
+    HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+    //compute the address of each block in allocating space
+    uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
+    uint64_t counter = 0;
+    uint64_t sum_size = 0;
+
+    while (counter < blocks){
+
+        if(read_size(*header_ptr)>64){
+            return -1;
+        }
+
+        sum_size += pow_of_2(read_size(*header_ptr));
+        header_ptr += HEADER_SIZE;
+        counter ++;
+    }
+
+    //check if block structure valid
+    if (pow_of_2(read_init_size(heapstart)) != sum_size){
+        return -1;
+    }
+
+    return 0;
+}
+
 void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
 
     if(heapstart==NULL){
@@ -169,6 +217,11 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     if(heapstart==NULL){
         return NULL;
     }
+
+    if (validation(heapstart)==-1){
+        //if validation fail
+        return NULL;
+    }
     //Compute the address of the header of first block
     HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
     //Initialize as NULL, once there exist suitable block, it will point to the header of that block
@@ -176,6 +229,7 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     uint64_t best_fit_size = UINT64_MAX;
     uint64_t current_size;
     BYTE * best_fit_address;
+    //compute the address of each block in allocating space
     BYTE * current_address = (BYTE *) (heapstart + HEAPSTART_SIZE);
 
     uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
@@ -243,6 +297,11 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
 int virtual_free(void * heapstart, void * ptr) {
 
     if(heapstart==NULL){
+        return 1;
+    }
+
+    if (validation(heapstart)==-1){
+        //if validation fail
         return 1;
     }
     //Compute the address of the header of first block
@@ -321,6 +380,11 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
         return NULL;
     }
 
+    if (validation(heapstart)==-1){
+        //if validation fail
+        return NULL;
+    }
+
     //Compute the address of the header of first block
     HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
     //the block header which we reallocate to
@@ -394,6 +458,11 @@ void virtual_info(void * heapstart) {
         return;
     }
 
+    if (validation(heapstart)==-1){
+        //if validation fail
+        return;
+    }
+    //Compute the address of the header of first block
     HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
 
     uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
@@ -415,6 +484,7 @@ void virtual_info(void * heapstart) {
 int available_size(void * heapstart, HEADER * previous, HEADER * next, uint8_t size, uint8_t serial){
     //preform a false-free operation, the data needed for this false-block is in parameters
     if (size >= read_init_size(heapstart)){
+        //break recursion
         return size;
     }
 
