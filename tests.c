@@ -1,9 +1,21 @@
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <setjmp.h>
+#include <stdint.h>
+
 #include "virtual_alloc.h"
 #include "virtual_sbrk.h"
-#include <stdlib.h>
+#include "cmocka.h"
+
 #define HEAP_SIZE_LIMIT 20
-#define VIRTUAL_HEAP_SIZE 18
-#define MIN_BLOCK_SIZE 11
+#define LARGE_HEAP_SIZE 18
+#define NORMAL_HEAP_SIZE 16
+#define SMALL_HEAP_SIZE 11
+
+#define LARGE_BLOCK_SIZE 12
+#define NORMAL_BLOCK_SIZE 10
+#define SMALL_BLOCK_SIZE 8
 
 void * virtual_heap = NULL;
 
@@ -15,100 +27,341 @@ void * virtual_sbrk(int32_t increment) {
     return ret;
 }
 
-int main() {
-    // Your own testing code here
-    /*
-     * Before Testing
-     */
-    virtual_heap = malloc(pow_of_2(HEAP_SIZE_LIMIT) * sizeof(u_int8_t));
-    virtual_sbrk(VIRTUAL_HEAP_SIZE);
+static int setup_virtual_heap(void **state){
+    virtual_heap = malloc(pow_of_2(HEAP_SIZE_LIMIT) * sizeof(uint8_t));
+    virtual_sbrk(10);
+    return 0;
+}
 
-    init_allocator(virtual_heap, VIRTUAL_HEAP_SIZE, MIN_BLOCK_SIZE);
-    virtual_info(virtual_heap);
-
-    /*
-     * Test Allocating
-     */
-
-//    void * test1 = virtual_malloc(virtual_heap,1024);
-//    void * test2 = virtual_malloc(virtual_heap,512);
-//    void * test3 = virtual_malloc(virtual_heap,256);
-//    void * test4 = virtual_malloc(virtual_heap,256);
-//
-//    virtual_info(virtual_heap);
-//
-//    virtual_free(virtual_heap,test4);
-//    virtual_free(virtual_heap,test2);
-//    virtual_info(virtual_heap);
-//    virtual_free(virtual_heap,test1);
-//    virtual_free(virtual_heap,test3);
-
-    virtual_info(virtual_heap);
-//    printf("\n");
-//
-//    printf("%d\n",virtual_free(virtual_heap,test2));
-//    virtual_info(virtual_heap);
-//    void * test5 = virtual_malloc(virtual_heap,256);
-//    virtual_info(virtual_heap);
-//    printf("%d\n",virtual_free(virtual_heap,test1));
-//    virtual_info(virtual_heap);
-//    void * test6 = virtual_malloc(virtual_heap,256);
-//    virtual_info(virtual_heap);
-//    printf("%d\n",virtual_free(virtual_heap,test3));
-//    virtual_info(virtual_heap);
-//    printf("%d\n",virtual_free(virtual_heap,test5));
-//    virtual_info(virtual_heap);
-//    printf("%d\n",virtual_free(virtual_heap,test4));
-//    virtual_info(virtual_heap);
-//    printf("%d\n",virtual_free(virtual_heap,test6));
-//    virtual_info(virtual_heap);
-
-    void * test1 = virtual_malloc(virtual_heap,1024);
-    void * test2 = virtual_malloc(virtual_heap,1024);
-    void * test3 = virtual_malloc(virtual_heap,1024);
-    void * test4 = virtual_malloc(virtual_heap,1024);
-    void * test5 = virtual_malloc(virtual_heap,1024);
-    void * test6 = virtual_malloc(virtual_heap,1024);
-    void * test7 = virtual_malloc(virtual_heap,1024);
-    void * test8 = virtual_malloc(virtual_heap,1024);
-    void * test9 = virtual_malloc(virtual_heap,1024);
-    void * test10 = virtual_malloc(virtual_heap,1024);
-    void * test11 = virtual_malloc(virtual_heap,1024);
-    void * test12 = virtual_malloc(virtual_heap,1024);
-    void * test13 = virtual_malloc(virtual_heap,1024);
-    void * test14 = virtual_malloc(virtual_heap,1024);
-    void * test15 = virtual_malloc(virtual_heap,1024);
-    void * test16 = virtual_malloc(virtual_heap,1024);
-
-
-
-    printf("%d\n",virtual_free(virtual_heap,test4));
-    printf("%d\n",virtual_free(virtual_heap,test14));
-    printf("%d\n",virtual_free(virtual_heap,test13));
-
-    printf("%d\n",virtual_free(virtual_heap,test10));
-    printf("%d\n",virtual_free(virtual_heap,test8));
-    printf("%d\n",virtual_free(virtual_heap,test12));
-    printf("%d\n",virtual_free(virtual_heap,test11));
-    printf("%d\n",virtual_free(virtual_heap,test9));
-    printf("%d\n",virtual_free(virtual_heap,test7));
-    printf("%d\n",virtual_free(virtual_heap,test15));
-    printf("%d\n",virtual_free(virtual_heap,test2));
-    virtual_info(virtual_heap);
-
-    printf("%d\n",virtual_free(virtual_heap,test16));
-
-    printf("%d\n",virtual_free(virtual_heap,test3));
-    printf("%d\n",virtual_free(virtual_heap,test1));
-    printf("%d\n",virtual_free(virtual_heap,test5));
-    printf("%d\n",virtual_free(virtual_heap,test6));
-
-
-
-    /*
-     * After Testing
-     */
+static int erase_virtual_heap(void **state){
     free(virtual_heap);
     virtual_heap = NULL;
+    return 0;
+}
+
+static int compare_heap_info(char * filename){
+
+    //open files
+    FILE * expected = fopen(filename,"r");
+    FILE * output = fopen("test/out","r");
+    if (expected == NULL || output == NULL){
+        fclose(expected);
+        fclose(output);
+        return -1;
+    }
+
+    //compare size
+    fseek(expected, 0L, SEEK_END);
+    int64_t expected_size = ftell(expected);
+    fseek(expected, 0L, SEEK_SET);
+
+    fseek(output, 0L, SEEK_END);
+    int64_t output_size = ftell(output);
+    fseek(output, 0L, SEEK_SET);
+
+    if(expected_size != output_size){
+        fclose(expected);
+        fclose(output);
+        return -1;
+    }
+
+    int e;//expected
+    int o;//output
+    while ((e = getc(expected)) != EOF && (o = getc(output)) != EOF){
+        if(e != o){
+            fclose(expected);
+            fclose(output);
+            return -1;
+        }
+    }
+    fclose(expected);
+    fclose(output);
+    return 0;
+}
+
+static void test_virtual_init_1(void **state) {
+    init_allocator(virtual_heap, NORMAL_HEAP_SIZE, NORMAL_BLOCK_SIZE);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_init_1") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_init_2(void **state) {
+    init_allocator(virtual_heap, LARGE_HEAP_SIZE, LARGE_BLOCK_SIZE);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_init_2") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_init_3(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, SMALL_BLOCK_SIZE);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_init_3") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_malloc_1(void **state) {
+    init_allocator(virtual_heap, NORMAL_HEAP_SIZE, NORMAL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,1022);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1025);
+
+    assert_int_equal(block2-block1,1024);
+    assert_int_equal(block3-block2,1024);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_malloc_1") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_malloc_2(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, NORMAL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,1022);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1025);
+
+    assert_int_equal(block2-block1,1024);
+    assert_null(block3);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_malloc_2") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_malloc_3(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, SMALL_HEAP_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,2048);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1025);
+    assert_non_null(block1);
+    assert_null(block2);
+    assert_null(block3);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_malloc_3") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_free_1(void **state) {
+    init_allocator(virtual_heap, NORMAL_HEAP_SIZE, NORMAL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,1022);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1025);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    virtual_free(virtual_heap,block2);
+    virtual_info(virtual_heap);
+    virtual_free(virtual_heap,block1);
+    virtual_info(virtual_heap);
+    virtual_free(virtual_heap,block3);
+    virtual_info(virtual_heap);
+
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_free_1") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_free_2(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, NORMAL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,1022);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    virtual_free(virtual_heap,block2);
+    virtual_info(virtual_heap);
+    virtual_free(virtual_heap,block1);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_free_2") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_free_3(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, SMALL_HEAP_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,2048);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    virtual_free(virtual_heap,block1);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_free_3") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_realloc_1(void **state) {
+    init_allocator(virtual_heap, NORMAL_HEAP_SIZE, NORMAL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,1022);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1025);
+
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    void * block4 = virtual_realloc(virtual_heap,block1,1023);
+    virtual_info(virtual_heap);
+    void * block5 = virtual_realloc(virtual_heap,block4,1024);
+    virtual_info(virtual_heap);
+    void * block6 = virtual_realloc(virtual_heap,block5,1025);
+    virtual_info(virtual_heap);
+    void * block7 = virtual_realloc(virtual_heap,block2,1023);
+    virtual_info(virtual_heap);
+    virtual_free(virtual_heap,block6);
+    virtual_free(virtual_heap,block7);
+    virtual_free(virtual_heap,block3);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_virtual_realloc_1") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_realloc_2(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, NORMAL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,1022);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1024);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+
+    void * block4 = virtual_realloc(virtual_heap,block1,1024);
+    virtual_info(virtual_heap);
+
+    void * block5 = virtual_realloc(virtual_heap,block4,1025);
+    virtual_info(virtual_heap);
+
+    void * block6 = virtual_realloc(virtual_heap,block4,0);
+    virtual_info(virtual_heap);
+
+    void * block7 = virtual_realloc(virtual_heap,block2,2048);
+    virtual_info(virtual_heap);
+
+    void * block8 = virtual_realloc(virtual_heap,block7,0);
+    virtual_info(virtual_heap);
+
+    void * block9 = virtual_realloc(virtual_heap,block3,2048);
+    virtual_info(virtual_heap);
+
+    freopen("/dev/tty","w",stdout);
+    assert_non_null(block4);
+    assert_null(block5);
+    assert_null(block6);
+    assert_non_null(block7);
+    assert_null(block8);
+    assert_non_null(block9);
+
+    if (compare_heap_info("test/test_virtual_realloc_2") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_virtual_realloc_3(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, SMALL_HEAP_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,2048);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1025);
+    assert_non_null(block1);
+    assert_null(block2);
+    assert_null(block3);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+
+    void * block4 = virtual_realloc(virtual_heap,block1,1024);
+    virtual_info(virtual_heap);
+
+    void * block5 = virtual_realloc(virtual_heap,NULL,1024);
+    virtual_info(virtual_heap);
+
+    void * block6 = virtual_realloc(virtual_heap,block5,0);
+    virtual_info(virtual_heap);
+
+    void * block7 = virtual_realloc(virtual_heap,block4,0);
+    virtual_info(virtual_heap);
+
+    freopen("/dev/tty","w",stdout);
+    assert_non_null(block4);
+    assert_null(block5);
+    assert_null(block6);
+    assert_null(block7);
+
+    if (compare_heap_info("test/test_virtual_realloc_3") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+int main() {
+    /*
+     * Constructing Unit Test
+     */
+    const struct CMUnitTest tests[] = {
+            cmocka_unit_test_setup_teardown(test_virtual_init_1,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_init_2,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_init_3,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_malloc_1,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_malloc_2,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_malloc_3,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_free_1,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_free_2,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_free_3,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_realloc_1,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_realloc_2,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_virtual_realloc_3,setup_virtual_heap,erase_virtual_heap),
+    };
+
+    /*
+     * Run tests
+     */
+    cmocka_run_group_tests(tests, NULL, NULL);
+
     return 0;
 }

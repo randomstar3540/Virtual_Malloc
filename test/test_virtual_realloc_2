@@ -1,0 +1,11 @@
+allocated 1024
+allocated 1024
+allocated 1024
+allocated 1024
+allocated 1024
+allocated 1024
+free 1024
+allocated 1024
+allocated 2048
+free 2048
+allocated 2048

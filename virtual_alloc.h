@@ -21,7 +21,6 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size);
 
 void virtual_info(void * heapstart);
 
-
 int available_size(void * heapstart, HEADER * previous, HEADER * next, uint8_t size, uint8_t serial);
 
 uint64_t pow_of_2(uint8_t power);
