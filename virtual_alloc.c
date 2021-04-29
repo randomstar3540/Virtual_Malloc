@@ -144,7 +144,7 @@ void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
     if(heapstart==NULL){
         return;
     }
-
+    //calculate current space and extend the program break
     uint64_t current_size = virtual_sbrk(0)-heapstart;
 
     if (virtual_sbrk(pow_of_2(initial_size) - current_size + HEAPSTART_SIZE) == NULL){
@@ -152,11 +152,11 @@ void init_allocator(void * heapstart, uint8_t initial_size, uint8_t min_size) {
     }
 
     HEADER * first_header = virtual_sbrk(0);
-
+    //move program break to next byte
     if (virtual_sbrk(HEADER_SIZE) == NULL){
         return;
     }
-
+    //initialize starting structure and the header of first block
     write_start(heapstart,initial_size,min_size);
     *first_header = 0;
     writer_size(first_header,initial_size);
@@ -169,8 +169,9 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     if(heapstart==NULL){
         return NULL;
     }
-
+    //Compute the address of the header of first block
     HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+    //Initialize as NULL, once there exist suitable block, it will point to the header of that block
     HEADER * best_fit = NULL;
     uint64_t best_fit_size = UINT64_MAX;
     uint64_t current_size;
@@ -185,39 +186,53 @@ void * virtual_malloc(void * heapstart, uint32_t size) {
     }
 
     while (counter < blocks){
+        //compute the actual size by taking the power
         current_size = pow_of_2(read_size(*header_ptr));
 
         if (read_status(*header_ptr) == FREE){
+            //Only consider blocks that with status of FREE
             if (current_size >= size && current_size < best_fit_size){
+                //Update is there exist a better block
                 best_fit = header_ptr;
                 best_fit_address = current_address;
                 best_fit_size = current_size;
             }
         }
+
+        //compute the address of next block in allocating space
         current_address += current_size;
+        //compute the address of the header of next block
         header_ptr += HEADER_SIZE;
+        //update counter
         counter ++;
     }
 
     if(best_fit == NULL){
+        //if no suitable block found, return NULL
         return NULL;
     }
 
     HEADER * new_header;
     uint8_t new_size_exp = read_size(*best_fit) -1;
     uint64_t new_size = pow_of_2(new_size_exp);
+    //No matter if we can break, change the status of current block
     writer_status(best_fit,IN_USE);
 
     while (new_size >= size && new_size_exp >= read_min_size(heapstart)){
+        //continue breaking if we can break
         new_header = add_block(best_fit);
         if(new_header == NULL){
+            //if adding fails
             return NULL;
         }
 
+        //initialize the new block
         writer_status(new_header,FREE);
         writer_size(new_header,new_size_exp);
+        //reduce the size of current block
         writer_size(best_fit,new_size_exp);
 
+        //update the variables
         new_size_exp = read_size(*best_fit) - 1;
         new_size = pow_of_2(new_size_exp);
     }
@@ -230,12 +245,13 @@ int virtual_free(void * heapstart, void * ptr) {
     if(heapstart==NULL){
         return 1;
     }
-
+    //Compute the address of the header of first block
     HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
     HEADER * previous_ptr = NULL;
     HEADER * next_ptr = NULL;
     uint64_t current_size;
 
+    //previous address needed for recursive case
     BYTE * previous_address = NULL;
     BYTE * current_address = (BYTE *) (heapstart + HEAPSTART_SIZE);
 
@@ -243,27 +259,44 @@ int virtual_free(void * heapstart, void * ptr) {
     uint64_t counter = 0;
 
     while (counter < blocks){
+        //update next header
         next_ptr = header_ptr + HEADER_SIZE;
         current_size = pow_of_2(read_size(*header_ptr));
+
         if (current_address == ptr){
+            //if block address matches ptr
+            //update status to free no matter if it is going to recursive
             writer_status(header_ptr, FREE);
             uint64_t serial = count_serial(heapstart,header_ptr);
 
+            //break the recursive if it goes to the maximum size
             if(read_size(*header_ptr) >= read_init_size(heapstart)){
                 return 0;
             }
 
             if(previous_ptr != NULL && serial % 2 == 1){
+                //if serial is odd, try merge with the left(previous) block
                 if (read_size(*previous_ptr) == read_size(*header_ptr) && read_status(*previous_ptr) == FREE){
+                    //merge only if both is free and size is same
+
+                    //update size and remove the right side(current) block
                     writer_size(previous_ptr,read_size(*previous_ptr + 1));
                     remove_block(header_ptr);
+
+                    //recursively free
                     virtual_free(heapstart,previous_address);
                     return 0;
                 }
             }else if (next_ptr != NULL && serial % 2 == 0){
+                //if serial is even, try merge with the right(next) block
                 if (read_size(*header_ptr) == read_size(*next_ptr) && read_status(*next_ptr) == FREE){
+                    //merge only if both is free and size is same
+
+                    //update size and remove the right side(next) block
                     writer_size(header_ptr,read_size(*header_ptr + 1));
                     remove_block(next_ptr);
+
+                    //recursively free
                     virtual_free(heapstart,current_address);
                     return 0;
                 }
@@ -271,6 +304,7 @@ int virtual_free(void * heapstart, void * ptr) {
             return 0;
         }
 
+        //update looping variables
         previous_address = current_address;
         current_address += current_size;
         previous_ptr = header_ptr;
@@ -287,19 +321,23 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
         return NULL;
     }
 
+    //Compute the address of the header of first block
     HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
+    //the block header which we reallocate to
     HEADER * realloc_header;
     uint64_t current_size;
-    uint64_t max_available_size = 0;
-    uint64_t size_obtain_free;
+    uint64_t max_available_size = 0; //the maximum size we can obtain
+    uint64_t size_obtain_free; //the maximum size we can obtain if we free the given block
     BYTE * current_address = (BYTE *) (heapstart + HEAPSTART_SIZE);
     BYTE * new_address;
 
     if(ptr == NULL){
+        //if pointer is NULL, go to malloc
         return virtual_malloc(heapstart,size);
     }
 
     if(size == 0){
+        //if size is 0, go to free
         virtual_free(heapstart,ptr);
         ptr = NULL;
         return NULL;
@@ -311,31 +349,38 @@ void * virtual_realloc(void * heapstart, void * ptr, uint32_t size) {
     while (counter < blocks){
         current_size = pow_of_2(read_size(*header_ptr));
         if (read_status(*header_ptr) == FREE && current_size>max_available_size){
+            //if block is free and maximum can be updated
             max_available_size = current_size;
         }
 
         if (current_address == ptr){
             realloc_header = header_ptr;
-
+            //compute the size we can obtain if we free the block
             size_obtain_free = available_size(heapstart, header_ptr -1, header_ptr +1,
                                               read_size(*header_ptr),count_serial(heapstart,header_ptr));
             size_obtain_free = pow_of_2(size_obtain_free);
 
             if(size_obtain_free > max_available_size){
+                //update if needed
                 max_available_size = size_obtain_free;
             }
         }
 
+        //update looping variables
         current_address += current_size;
         header_ptr += HEADER_SIZE;
         counter ++;
     }
 
     if (realloc_header != NULL && max_available_size >= size){
+        //if the size we can obtain is larger than the size we are going to reallocate
+        //Just free current block and allocate it again
         uint64_t original = pow_of_2(read_size(*realloc_header));
         virtual_free(heapstart,ptr);
         new_address = virtual_malloc(heapstart,size);
+        //take the smaller one between current size and reallocate size
         size = original > size ? size : original;
+        //move the contents from previous to the new block
         memmove(new_address,ptr,size);
         return new_address;
     }
@@ -351,13 +396,10 @@ void virtual_info(void * heapstart) {
 
     HEADER * header_ptr = heapstart + pow_of_2(read_init_size(heapstart)) + HEAPSTART_SIZE;
 
-//    printf("HEAP SIZE %lu\n",(void *)header_ptr - heapstart);//debug
-//    printf("BRK %p\n",virtual_sbrk(0));//debug
-
     uint64_t blocks = virtual_sbrk(0) - (void *)header_ptr;
     uint64_t counter = 0;
     while (counter < blocks){
-//        printf("BLOCK %lu ADDR %p\n",counter,header_ptr); //debug
+        //continue reading and printing blocks
         if (read_status(*header_ptr) == FREE){
             printf("free %lu\n",pow_of_2(read_size(*header_ptr)));
         } else if (read_status(*header_ptr) == IN_USE){
@@ -371,11 +413,12 @@ void virtual_info(void * heapstart) {
 }
 
 int available_size(void * heapstart, HEADER * previous, HEADER * next, uint8_t size, uint8_t serial){
-
+    //preform a false-free operation, the data needed for this false-block is in parameters
     if (size >= read_init_size(heapstart)){
         return size;
     }
 
+    //calculating serial number and recursively compute just like free
     if(serial % 2 == 0){
         if(size == read_size(*next) && read_status(*next) == FREE){
             return available_size(heapstart,previous,next+1,size+1, serial/2);
@@ -395,6 +438,7 @@ int available_size(void * heapstart, HEADER * previous, HEADER * next, uint8_t s
 }
 
 uint64_t pow_of_2(uint8_t power){
+    //compute the power of 2 by the exponential given
     uint64_t num = 1;
     return num << power;
 }
