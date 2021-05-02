@@ -339,6 +339,90 @@ static void test_virtual_realloc_3(void **state) {
     }
 }
 
+static void test_error_1(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, SMALL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,2048);
+
+    /*
+     * Dirty heapstart pointer
+     */
+    void * block2 = virtual_malloc(block1,1024);
+    assert_non_null(block1);
+    assert_null(block2);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_error_1") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_error_2(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, SMALL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,1024);
+    void * block2 = virtual_malloc(virtual_heap,1024);
+    void * block3 = virtual_malloc(virtual_heap,1025);
+    assert_non_null(block1);
+    assert_non_null(block2);
+    assert_null(block3);
+
+    /*
+     * Boundary writing test
+     */
+    memset(block1,1,1024*sizeof(uint8_t));
+    memset(block2,2,1024*sizeof(uint8_t));
+    uint8_t * block1_ptr = block1;
+    uint8_t * block2_ptr = block2;
+    assert_int_equal(*block1_ptr,1);
+    assert_int_equal(*(block1_ptr+1),1);
+    assert_int_equal(*(block1_ptr+1023),1);
+    assert_int_equal(*(block1_ptr+1024),2);
+    assert_int_equal(*(block2_ptr-1),1);
+    assert_int_equal(*block2_ptr,2);
+    assert_int_equal(*(block2_ptr+1023),2);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    if (compare_heap_info("test/test_error_2") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
+
+static void test_error_3(void **state) {
+    init_allocator(virtual_heap, SMALL_HEAP_SIZE, SMALL_BLOCK_SIZE);
+    void * block1 = virtual_malloc(virtual_heap,512);
+    void * block2 = virtual_malloc(virtual_heap,512);
+    void * block3 = virtual_malloc(virtual_heap,512);
+    assert_non_null(block1);
+    assert_non_null(block2);
+    assert_non_null(block3);
+
+    //use temporary file to store the output
+    freopen("test/out","w",stdout);
+    virtual_info(virtual_heap);
+    freopen("/dev/tty","w",stdout);
+
+    /*
+     * Change allocating data structure
+     */
+    memset(block3,20,1026*sizeof(uint8_t));
+    void * block4 = virtual_malloc(virtual_heap,512);
+    assert_null(block4);
+    int rc = virtual_free(virtual_heap,block3);
+    assert_int_equal(rc,1);
+    void * block5 = virtual_realloc(virtual_heap,block1,513);
+    assert_null(block5);
+
+    if (compare_heap_info("test/test_error_3") != 0){
+        fail_msg("heap structure not matched!");
+    }
+}
 int main() {
     /*
      * Constructing Unit Test
@@ -356,6 +440,9 @@ int main() {
             cmocka_unit_test_setup_teardown(test_virtual_realloc_1,setup_virtual_heap,erase_virtual_heap),
             cmocka_unit_test_setup_teardown(test_virtual_realloc_2,setup_virtual_heap,erase_virtual_heap),
             cmocka_unit_test_setup_teardown(test_virtual_realloc_3,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_error_1,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_error_2,setup_virtual_heap,erase_virtual_heap),
+            cmocka_unit_test_setup_teardown(test_error_3,setup_virtual_heap,erase_virtual_heap),
     };
 
     /*
